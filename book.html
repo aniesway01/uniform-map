@@ -76,9 +76,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans
 .score-mid{background:rgba(241,196,15,.15);color:#f1c40f}
 
 /* Pagination */
-.pagination{padding:16px 24px;background:var(--bg2);border-top:1px solid var(--brd);display:flex;align-items:center;justify-content:center;gap:16px}
+.pagination{padding:16px 24px;background:var(--bg2);border-top:1px solid var(--brd);display:flex;align-items:center;justify-content:center;gap:12px}
 .pagination .btn{min-width:100px;text-align:center}
-.pagination .page-info{font-size:.85rem;color:var(--tx2);min-width:80px;text-align:center}
+.pagination .page-info{font-size:.85rem;color:var(--tx2);text-align:center;display:flex;align-items:center;gap:6px}
+.pagination .page-input{width:50px;padding:4px 6px;border:1px solid var(--brd);border-radius:4px;background:var(--bg);color:var(--tx);font-size:.85rem;text-align:center}
+.pagination .page-input:focus{border-color:var(--ac);outline:none}
+.pagination .page-total{color:var(--tx3)}
 
 /* Chapter colors for nav */
 .nav-ch-1{border-left-color:#e94b77!important}
@@ -123,7 +126,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans
     </div>
     <div class="pagination">
       <button class="btn" id="prevBtn" onclick="navigate(-1)">&larr; 上一個</button>
-      <span class="page-info" id="pageInfo">-</span>
+      <span class="page-info">
+        <input type="number" class="page-input" id="pageInput" min="1" value="1" onchange="goToPage(this.value)" onkeydown="if(event.key==='Enter')goToPage(this.value)">
+        <span class="page-total">/ <span id="pageTotal">0</span></span>
+      </span>
       <button class="btn" id="nextBtn" onclick="navigate(1)">下一個 &rarr;</button>
     </div>
   </div>
@@ -196,6 +202,16 @@ function navigate(dir){
   renderCard();
 }
 
+function goToPage(val){
+  const page=parseInt(val,10);
+  if(isNaN(page)||page<1||page>filtered.length){
+    document.getElementById("pageInput").value=currentIdx+1;
+    return;
+  }
+  currentIdx=page-1;
+  renderCard();
+}
+
 function renderCard(){
   const container=document.getElementById("cardContainer");
   const pageInfo=document.getElementById("pageInfo");
@@ -208,7 +224,7 @@ function renderCard(){
 
   const ex=filtered[currentIdx];
   const ch=ex.chapter||1;
-  const scoreBadge=ex.score?`<span class="score-badge ${ex.score>=9?'score-high':'score-mid'}">★ ${ex.score}</span>`:"";
+  const scoreBadge=ex.score?`<span class="score-badge ${ex.score>=9?'score-high':'score-mid'}" title="LLM 自動評分，僅供參考">LLM ★ ${ex.score}</span>`:"";
 
   // Truncate prompt display
   const promptDisplay=ex.prompt||"(無提示詞)";
@@ -250,7 +266,9 @@ function renderCard(){
   </div>
 </div>`;
 
-  pageInfo.textContent=`${currentIdx+1} / ${filtered.length}`;
+  document.getElementById("pageInput").value=currentIdx+1;
+  document.getElementById("pageInput").max=filtered.length;
+  document.getElementById("pageTotal").textContent=filtered.length;
 }
 
 function escapeHtml(s){
