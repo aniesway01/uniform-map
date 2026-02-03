@@ -67,6 +67,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans
 .card-body .section-label{font-size:.75rem;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;font-weight:600}
 .card-body .prompt-text{font-family:"Fira Code",monospace;font-size:.8rem;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:12px;line-height:1.7;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;color:var(--tx)}
 .card-body .commentary{font-size:.88rem;line-height:1.8;color:var(--tx)}
+.card-body .elements-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px}
+.card-body .element-group{background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:8px;font-size:.78rem}
+.card-body .element-group-title{font-size:.68rem;color:var(--tx2);margin-bottom:4px;font-weight:600}
+.card-body .element-group-items{color:var(--tx);line-height:1.5}
 .card-body .tags{display:flex;flex-wrap:wrap;gap:6px}
 .card-body .tag{padding:3px 10px;border-radius:4px;font-size:.78rem;background:var(--bg3);border:1px solid var(--brd);color:var(--tx);cursor:pointer;transition:all .15s}
 .card-body .tag:hover{border-color:var(--ac);color:var(--ac)}
@@ -214,20 +218,49 @@ function goToPage(val){
 
 function renderCard(){
   const container=document.getElementById("cardContainer");
-  const pageInfo=document.getElementById("pageInfo");
 
   if(!filtered.length){
     container.innerHTML='<div style="color:var(--tx2);padding:60px;text-align:center">沒有符合的範例</div>';
-    pageInfo.textContent="0 / 0";
+    document.getElementById("pageInput").value=0;
+    document.getElementById("pageTotal").textContent=0;
     return;
   }
 
   const ex=filtered[currentIdx];
-  const ch=ex.chapter||1;
+  const ch=ex.chapter||ex.primary_chapter||1;
   const scoreBadge=ex.score?`<span class="score-badge ${ex.score>=9?'score-high':'score-mid'}" title="LLM 自動評分，僅供參考">LLM ★ ${ex.score}</span>`:"";
 
-  // Truncate prompt display
-  const promptDisplay=ex.prompt||"(無提示詞)";
+  // 原內容（優先用 original_prompt，其次 prompt）
+  const originalPrompt=ex.original_prompt||ex.prompt||"(無提示詞)";
+
+  // 元素拆解（新格式）
+  let elementsHtml='';
+  if(ex.elements&&typeof ex.elements==='object'){
+    const groups=[];
+    for(let i=1;i<=9;i++){
+      const items=ex.elements[i]||ex.elements[String(i)]||[];
+      if(items.length>0){
+        groups.push(`<div class="element-group"><div class="element-group-title">${CHAPTERS[i]}</div><div class="element-group-items">${items.map(x=>escapeHtml(x)).join('、')}</div></div>`);
+      }
+    }
+    if(groups.length>0){
+      elementsHtml=`<div class="section"><div class="section-label">元素拆解</div><div class="elements-grid">${groups.join('')}</div></div>`;
+    }
+  }
+
+  // 舊格式相容（key_techniques + vocabulary_used）
+  let oldFormatHtml='';
+  if(!elementsHtml){
+    if(ex.key_techniques&&ex.key_techniques.length){
+      oldFormatHtml+=`<div class="section"><div class="section-label">關鍵技巧</div><div class="tags">${ex.key_techniques.map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div></div>`;
+    }
+    if(ex.vocabulary_used&&ex.vocabulary_used.length){
+      oldFormatHtml+=`<div class="section"><div class="section-label">相關詞彙</div><div class="tags">${ex.vocabulary_used.map(v=>`<a class="tag vocab-tag" href="dictionary.html#${encodeURIComponent(v)}" target="_blank">${escapeHtml(v)}</a>`).join('')}</div></div>`;
+    }
+  }
+
+  // 教學點評（舊資料有，新資料可能沒有）
+  const commentaryHtml=ex.commentary?`<div class="section"><div class="section-label">教學點評</div><div class="commentary">${escapeHtml(ex.commentary)}</div></div>`:'';
 
   container.innerHTML=`
 <div class="card">
@@ -236,29 +269,16 @@ function renderCard(){
   </div>
   <div class="card-body">
     <span class="chapter-tag ch-${ch}">第${ch}章 ${CHAPTERS[ch]||''}</span>${scoreBadge}
-    <h2>${ex.title||'未命名'}</h2>
+    <h2>${ex.title||'Prompt 範例'}</h2>
 
     <div class="section">
-      <div class="section-label">提示詞</div>
-      <div class="prompt-text">${escapeHtml(promptDisplay)}</div>
+      <div class="section-label">原內容</div>
+      <div class="prompt-text">${escapeHtml(originalPrompt)}</div>
     </div>
 
-    <div class="section">
-      <div class="section-label">教學點評</div>
-      <div class="commentary">${escapeHtml(ex.commentary||'')}</div>
-    </div>
-
-    ${ex.key_techniques&&ex.key_techniques.length?`
-    <div class="section">
-      <div class="section-label">關鍵技巧</div>
-      <div class="tags">${ex.key_techniques.map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
-    </div>`:''}
-
-    ${ex.vocabulary_used&&ex.vocabulary_used.length?`
-    <div class="section">
-      <div class="section-label">相關詞彙</div>
-      <div class="tags">${ex.vocabulary_used.map(v=>`<a class="tag vocab-tag" href="dictionary.html#${encodeURIComponent(v)}" target="_blank">${escapeHtml(v)}</a>`).join('')}</div>
-    </div>`:''}
+    ${elementsHtml}
+    ${oldFormatHtml}
+    ${commentaryHtml}
 
     <div class="section" style="margin-top:12px">
       <div style="font-size:.72rem;color:var(--tx3)">ID: ${ex.id} | 類型: ${ex.prompt_type||'—'}</div>
