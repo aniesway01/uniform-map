@@ -1,0 +1,41 @@
+name: Daily Sync from Supabase
+
+on:
+  schedule:
+    # 每天台北時間早上 6 點執行（UTC 22:00）
+    - cron: '0 22 * * *'
+  workflow_dispatch:  # 允許手動觸發
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Sync from Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/sync_from_supabase.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: daily sync from Supabase $(date +'%Y-%m-%d')"
+            git push
+          fi
